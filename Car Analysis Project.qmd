@@ -1,0 +1,412 @@
+---
+title: "Car Analysis Project"
+author: "Ikenna Atum"
+date: "12 May 2025"
+format: 
+  html:
+    code-fold: true
+    self-contained: True
+    theme: lux
+    toc: true
+    toc-title: "The TOC"
+    fig-align: left
+  pdf: default
+editor: visual
+editor_options: 
+  chunk_output_type: inline
+execute: 
+  echo: true
+---
+# An Analysis of What Influences Car Price
+
+
+## Introduction
+The purpose of this project is to analyze the determinants of car price. During the pandemic the used car market was sent surging due to supply shortages. This article has some good information on this (https://spectrumlocalnews.com/nys/central-ny/news/2024/05/02/used-vehicles-during-pandemic) This lead me to think of one question, "what are the main determinants for the price of a car?" Through this project the question will be answered with not only machine learning models but with compelling data visualizations to illustrate the point. There will also be a section at the end to of this analysis to predict car prices using the model developed in this project.
+
+## Data Description
+The data comes from Kaggle. This dataset encompasses details such as the year, make, model, trim, body type, transmission type, VIN (Vehicle Identification Number), state of registration, condition rating, odometer reading, exterior and interior colors, seller information, Manheim Market Report (MMR) values, selling prices, and sale dates. 
+
+
+## Results
+There are many important variables that influence car price. This ranges from the odometer and the body of the car all the way to the trim level. Market conditions also play a huge roll as we will see below. A change in the Manheim Market Report value can cause a huge change in the price of the vehicle since. So supply side shortages or a widely successful campaign could influence car price. For more research down the line, larger data sets and more variables will be required. 
+
+
+## Further Analysis
+To build on this analysis we can look and see how time has an effect on consumer car demand. If cars have higher selling prices at different points of the year, buyers can use this to there advantage and get a better deal for said vehicle in the market. 
+
+
+## Link for the Kaggle Data
+https://www.kaggle.com/datasets/syedanwarafridi/vehicle-sales-data
+
+
+# Predicting the Prices for Cars
+
+
+
+## Load the data
+```{r}
+library(readr)
+cars <- read.csv("C:/Users/Ikeat/Desktop/car_prices.csv", stringsAsFactors = TRUE)
+str(cars)
+```
+
+
+```{r}
+library(pacman)
+p_load(tidyverse, mdsr, sf)
+```
+
+
+```{r}
+p_load(DT, gt, naniar, ggConvexHull, tidymodels, yardstick, plotly)
+```
+
+
+# Exploring and Preparing the data and cleaning the data
+# Summarize the selling price variable
+
+
+```{r}
+head(cars) %>% gt()
+```
+
+
+
+```{r}
+
+summary(cars$sellingprice)
+```
+
+
+## Histogram of selling price 
+```{r}
+#| fig-cap: "Distribution of the selling price of cars in the dataset"
+hist(cars$sellingprice)
+```
+
+
+
+## tables of a few of the categorical variables
+```{r}
+table(cars$make)
+```
+
+
+```{r}
+table(cars$body) 
+```
+
+
+```{r}
+table(cars$transmission)
+```
+
+
+```{r}
+table(cars$state)
+```
+
+
+```{r}
+table(cars$color)
+```
+
+```{r}
+table(cars$interior)
+```
+
+
+
+## Checking on the missing variables
+```{r}
+gg_miss_var(cars)
+```
+
+
+```{r}
+library(skimr)
+skim(cars)
+```
+
+
+
+
+## Dropping all the missing values
+```{r}
+cars <- cars |> drop_na()
+```
+
+
+
+## Exploring relationships among features: correaltion matrix
+```{r}
+cor(cars[c("year", "condition", "odometer", "mmr", "sellingprice")])
+```
+
+
+
+## Visualizing the relationships among features: scatterplot matrix
+```{r}
+pairs(cars[c("year", "condition", "odometer", "mmr", "sellingprice")], pch = ".")
+```
+
+
+## More informative scatterplot martix
+```{r}
+#| fig-cap: "This scatterplot matrix shows the relationship between the two variables. The histogram shows the distribution of each variable." 
+library(psych)
+pairs.panels(cars[c("year", "condition", "odometer", "mmr", "sellingprice")], pch = ".")
+
+```
+
+
+## Training the model on the data
+```{r}
+#| fig-cap: "The model that is going to be used predict car prices."
+car_model <- lm(sellingprice ~ year + condition + odometer + mmr , data = cars)
+```
+
+
+
+
+# See the estimated beta coefficients
+```{r}
+options(scipen = 999) # turn off scientific notation
+car_model
+```
+
+## Evaluating model performance
+## See more detail about the estimated beta coefficients
+```{r}
+summary(car_model)
+```
+
+
+## Improving the model 
+```{r}
+#| fig-cap: "Adding a polynomial term to better capture the relationship of the variable"
+cars$mmr2 <- cars$mmr^2
+```
+
+# Create final model
+```{r}
+#| fig-cap: "Didn't include all the features because the factor variables had too many levels "
+
+car_model2 <- lm(sellingprice ~ year + condition + odometer + mmr + mmr2, data = cars)
+
+
+summary(car_model2)
+```
+
+
+# Making predcitons with the regression model
+We can see that the model is pretty accurate in determining car prices
+```{r}
+cars$pred <- predict(car_model, cars)
+cor(cars$pred, cars$sellingprice)
+```
+
+
+```{r}
+#| fig-cap: "Ploting the Predicted selling car prices against the actual selling price."
+plot(cars$pred, cars$sellingprice)
+abline(a = 0, b = 1, col = "red", lwd = 3, lty = 2)
+```
+
+
+# An analysis on SUV prices 
+```{r}
+#| fig-cap: "a filtered dataset for all the suv brands"
+suv_brands <- cars |>
+  filter(make == "Jeep" | make == "Ford" | make == "Land Rover" | make == "Kia" | make == "Cadillac") |>
+  filter(model == "Wrangler"| model == "Range Rover"| model == "Explorer"| model == "Sorento"| model == "Escalade")
+head(suv_brands) %>% gt()
+```
+
+
+
+## Seperating the different brands 
+```{r}
+
+jeep_p <- cars |>
+  filter(make == "Jeep") |>
+  filter(model == "Wrangler")
+  
+  
+land_p <- cars |>
+  filter(make == "Land Rover") |>
+  filter(model == "Range Rover")
+  
+
+ford_p <- cars |>
+  filter(make == "Ford") |>
+  filter(model == "Explorer")
+  
+  
+kia_p <- cars |>
+  filter(make == "Kia") |>
+  filter(model == "Sorento")
+  
+cad_p <- cars |>
+  filter(make == "Cadillac") |>
+  filter(model == "Escalade")
+
+```
+
+
+## Table of all the values
+```{r}
+head(jeep_p) |> gt()
+```
+
+
+```{r}
+head(kia_p) |> gt()
+```
+
+
+```{r}
+head(land_p) |> gt()
+```
+
+```{r}
+head(ford_p) |> gt()
+```
+
+
+```{r}
+head(cad_p) |> gt()
+```
+
+
+
+## Preidcting the car price for a Kia Sorento while changing a few of the features
+```{r}
+predict(car_model, 
+        data.frame(year = 2015, make = "Kia", model = "Sorento", trim = "LX", body = "SUV", state = "ca", condition = 40, odometer = 16000, color = "white", interior = "black", mmr = 20500, transmission = "automatic"))
+```
+
+
+## Changing the year
+```{r}
+predict(car_model, 
+        data.frame(year = 2016, make = "Kia", model = "Sorento", trim = "LX", body = "SUV", state = "ca", condition = 40, odometer = 16000, color = "white", interior = "black", mmr = 20500, transmission ="automatic"))
+```
+
+## Changing the state
+```{r}
+predict(car_model, 
+        data.frame(year = 2015, make = "Kia", model = "Sorento", trim = "LX", body = "SUV", state = "tx", condition = 40, odometer = 16000, color = "white", interior = "black", mmr = 20500, transmission ="automatic"))
+```
+
+## Changing the odometer
+```{r}
+predict(car_model, 
+        data.frame(year = 2015, make = "Kia", model = "Sorento", trim = "LX", body = "SUV", state = "ca", condition = 40, odometer = 16500, color = "white", interior = "black", mmr = 20500, transmission ="automatic"))
+```
+
+
+## Changing the Mannehiam Market Report
+```{r}
+predict(car_model, 
+        data.frame(year = 2015, make = "Kia", model = "Sorento", trim = "LX", body = "SUV", state = "ca", condition = 40, odometer = 16500, color = "white", interior = "black", mmr = 22500, transmission ="automatic"))
+```
+
+## Changing the interior
+```{r}
+predict(car_model, 
+        data.frame(year = 2015, make = "Kia", model = "Sorento", trim = "LX", body = "SUV", state = "ca", condition = 40, odometer = 16500, color = "white", interior = "white", mmr = 22500, transmission ="automatic"))
+```
+
+## Changing the color
+```{r}
+predict(car_model, 
+        data.frame(year = 2015, make = "Kia", model = "Sorento", trim = "LX", body = "SUV", state = "ca", condition = 40, odometer = 16500, color = "blue", interior = "black", mmr = 22500, transmission ="automatic"))
+```
+
+## Changing the transmission
+```{r}
+predict(car_model, 
+        data.frame(year = 2015, make = "Kia", model = "Sorento", trim = "LX", body = "SUV", state = "ca", condition = 40, odometer = 16500, color = "white", interior = "black", mmr = 22500, transmission ="manual"))
+```
+
+
+
+
+## Some plots to visualize the data
+```{r}
+#| fig-cap: "Looking at the relationship between the condition of the car and the selling price. We can see that the better the condition the car is the higher the price it sells for. And we can also see the some cars in really bad condtion can still fetch a high price in the market."
+cars |> ggplot(aes(x = condition, y = sellingprice)) + geom_point()
+```
+
+
+## Same as above just spliting by brand
+```{r}
+#| fig-cap: "Looking deepper into the analysis. By splitting the dataset into SUVs. We can see the difference between Brands and how much they are demanded for at different condtions. For example we can see that regardless of condtion, Land Rover's are highly demanded. "
+cars |> 
+  filter(make == "Jeep"| make == "Ford"| make == "Land Rover"| make == "Cadillac") |>
+  ggplot(aes(x = condition, y = sellingprice, color = make)) + geom_point()
+```
+
+## Same with a facet_wrap
+```{r}
+#| fig-cap: "Using a facet wrap to really isolate the difference in prices based on the conditions among the brands."
+cars_face <- cars |> 
+  filter(make == "Jeep"| make == "Ford"| make == "Land Rover"| make == "Cadillac"| make == "Kia") |>
+  ggplot(aes(x = condition, y = sellingprice, color = make)) + geom_point() + facet_wrap(~make)
+cars_face
+```
+
+
+# doing the same with individual selling price of the different car models 
+```{r}
+#| fig-cap: "Looking at the different SUV brands and how the prices compare at different condtions."
+suv_brands |>
+  ggplot(aes(x = condition, y = sellingprice, color = make)) + geom_point() + facet_wrap(~model)
+```
+
+# box plot of all the different suv demand
+```{r}
+#| fig-cap: "A boxplot that shows the distribution in prices. We can also see outliers among the prices for the cars."
+ggplot(suv_brands, aes(x=make, y=sellingprice)) +
+  geom_boxplot()
+```
+
+
+
+```{r}
+#| fig-cap: "Timeline to see how selling price and condtion have changed over time."
+library(plotly)
+library(tidyverse)
+p1 <- cars |> 
+  filter(make %in% c("jeep", "ford", "land rover", "cadillac", "kia")) |>
+  ggplot(aes(x = condition, y = sellingprice)) + geom_point(aes(color = make, size = odometer,   frame = year, ids = model), alpha = 0.5) + labs(
+    x = "The Condtion of the car at the time of Sale",
+    y = "The Selling Price of the Car",
+    color = "Brand of the car",
+    size = NULL
+    )
+
+ggplotly(p1)
+```
+
+
+
+```{r}
+#| fig-cap: "The previous facet wrap plot but this time as an interactive plotly graph."
+library(plotly)
+cars_face |> ggplotly()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
